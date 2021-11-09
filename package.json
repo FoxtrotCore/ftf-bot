@@ -1,0 +1,26 @@
+{
+  "name": "ftf-bot",
+  "version": "0.0.1",
+  "description": "An all-purpose Discord Bot as an extra interface to FTF's software.",
+  "main": "ftf-bot/index.js",
+  "scripts": {
+    "test": "npm test",
+    "start": "node ftf-bot/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FoxtrotCore/ftf-bot.git"
+  },
+  "keywords": [
+    "dicord bot",
+    "rest api",
+    "subtitles",
+    "code lyoko"
+  ],
+  "author": "Foxtrot Fanatics",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/FoxtrotCore/ftf-bot/issues"
+  },
+  "homepage": "https://github.com/FoxtrotCore/ftf-bot#readme"
+}
