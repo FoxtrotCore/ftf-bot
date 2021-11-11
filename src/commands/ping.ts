@@ -1,10 +1,9 @@
 class Ping extends require("../../automation/commandClass"){
     constructor() {
-        super("ping",
-            {
-                name: "ping",
-                description: "Get the ping."
-            });
+        super({
+            name: "ping",
+            description: "Get the ping."
+        });
     }
     exec(ic){
         const start = new Date();
