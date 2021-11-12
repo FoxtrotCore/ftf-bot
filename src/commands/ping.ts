@@ -1,4 +1,4 @@
-class Ping extends require("../../automation/commandClass"){
+class Ping extends require("../automation/commandClass"){
     constructor() {
         super({
             name: "ping",
