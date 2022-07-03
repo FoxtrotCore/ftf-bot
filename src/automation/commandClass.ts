@@ -1,22 +1,25 @@
-export abstract class CommandClass {
-  protected name: string
-  protected description: string
+import {
+    ApplicationCommandData,
+    Client,
+    CommandInteraction
+} from "discord.js";
 
-  constructor() {
-    this.name = null
-    this.description = null
-  }
+export default abstract class CommandClass {
+    private readonly name : string;
+    private readonly slashObj? : ApplicationCommandData;
 
-  abstract exec(interaction) : any
-
-  getName() : string {
-    return this.name
-  }
-
-  toJSON() : Object {
-    return {
-        name: this.name,
-        description: this.description
+    protected constructor(commandName : string, slashObject? : ApplicationCommandData) {
+        this.name = commandName;
+        this.slashObj = slashObject;
     }
-  }
+
+    getName() : string {
+        return this.name;
+    }
+
+    getSlash() : ApplicationCommandData {
+        return this.slashObj;
+    }
+
+    abstract exec(bot : Client, interaction : CommandInteraction) : void;
 }

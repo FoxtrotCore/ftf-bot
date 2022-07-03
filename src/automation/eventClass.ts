@@ -1,17 +1,21 @@
-import { NullLiteral } from 'typescript'
+import { Client } from "discord.js";
 
-export abstract class EventClass {
-    private readonly eventName: string
-    private readonly runOnce: boolean
+export default abstract class EventClass {
+    private readonly eventName : string;
+    private readonly runOnce : boolean;
 
-    constructor(eventName: string, runOnce: boolean) {
-        this.eventName = eventName
-        this.runOnce = runOnce
+    protected constructor(eventName : string, runOnce : boolean) {
+        this.eventName = eventName;
+        this.runOnce = runOnce;
     }
 
-    getEventName() : string { return this.eventName }
+    getEventName() : string {
+        return this.eventName;
+    }
 
-    isRunOnce() : boolean { return this.runOnce }
+    isRunOnce() : boolean {
+        return this.runOnce;
+    }
 
-    abstract exec(interaction, bot) : void
+    abstract exec(bot : Client, ...args : unknown[]): void;
 }

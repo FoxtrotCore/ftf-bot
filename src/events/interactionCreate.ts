@@ -1,4 +1,4 @@
-import { EventClass } from '../automation/eventClass'
+import EventClass from '../automation/eventClass'
 import { log } from '../main'
 
 export class InteractionCreate extends EventClass {
@@ -7,8 +7,8 @@ export class InteractionCreate extends EventClass {
 
     }
 
-    exec(interaction, bot) : void {
-        const int = interaction[0]  // Grab the first command only
+    exec(bot, interaction) : void {
+        const int = interaction;
 
         if(int.command !== undefined){
             if(!bot.callables.has(int.commandName)) {
