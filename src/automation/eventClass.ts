@@ -1,12 +1,17 @@
-class EventClass {
-    private readonly eventName: string;
-    private readonly runOnce: boolean;
-    constructor(event,once) {
-        this.eventName = event;
-        this.runOnce = once;
+import { NullLiteral } from 'typescript'
+
+export abstract class EventClass {
+    private readonly eventName: string
+    private readonly runOnce: boolean
+
+    constructor(eventName: string, runOnce: boolean) {
+        this.eventName = eventName
+        this.runOnce = runOnce
     }
-    getEventName(){return this.eventName;}
-    isRunOnce(){return this.runOnce;}
-    exec(){return console.log(`${this.getEventName()} executed.`);}
+
+    getEventName() : string { return this.eventName }
+
+    isRunOnce() : boolean { return this.runOnce }
+
+    abstract exec(interaction, bot) : void
 }
-module.exports = EventClass;

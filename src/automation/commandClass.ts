@@ -1,9 +1,22 @@
-class CommandClass {
-    private readonly slashObj: object;
-    constructor(slashObj) {
-        this.slashObj = slashObj;
+export abstract class CommandClass {
+  protected name: string
+  protected description: string
+
+  constructor() {
+    this.name = null
+    this.description = null
+  }
+
+  abstract exec(interaction) : any
+
+  getName() : string {
+    return this.name
+  }
+
+  toJSON() : Object {
+    return {
+        name: this.name,
+        description: this.description
     }
-    getSlashObj(){return this.slashObj;}
-    exec(){return console.log(`${this.getSlashObj()["name"]} executed.`);}
+  }
 }
-module.exports = CommandClass;

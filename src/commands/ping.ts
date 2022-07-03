@@ -1,16 +1,20 @@
-class Ping extends require("../automation/commandClass"){
-    constructor() {
-        super({
-            name: "ping",
-            description: "Get the ping."
-        });
-    }
-    exec(ic){
-        const start = new Date();
-        ic.reply("Getting the latency...").then(()=>{
-            const end = new Date();
-            ic.editReply(`Ping is: \`${end.getTime() - start.getTime()}\`ms.`)
-        });
-    }
+import { CommandClass } from '../automation/commandClass'
+import { log } from '../main'
+
+export class Ping extends CommandClass {
+  constructor() {
+    super()
+
+    this.name = 'ping'
+    this.description = 'Ping the bot and get delay time (in ms) between the bot and Discord\'s servers'
+  }
+
+  exec(interaction) {
+    const start = new Date();
+
+    interaction.reply('Getting the latency...').then(() => {
+      const end = new Date();
+      interaction.editReply(`Ping is: \`${end.getTime() - start.getTime()}\`ms.`)
+    })
+  }
 }
-module.exports = new Ping();
