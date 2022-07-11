@@ -25,6 +25,8 @@
   },
   "homepage": "https://github.com/FoxtrotCore/ftf-bot#readme",
   "dependencies": {
+    "fs-extra": "10.1.0",
+    "@google-cloud/storage": "^6.2.2",
     "@types/node": "^18.0.0",
     "discord.js": "^13.3.1",
     "logging": "^3.3.0",
