@@ -10,9 +10,12 @@ export function episodeToFilePair(manifest: Object, episode_number: Number) : st
 }
 
 export function createCacheDir(cacheDir: string) {
-    fs.ensureDir(cacheDir)
-        .then(() => log.info(`Cache dir located at: ${cacheDir}`))
-        .catch(log.error)
+    createDir(cacheDir)
+    log.info(`Cache dir located at: ${cacheDir}`)
+}
+
+export function createDir(dir: string) {
+    fs.ensureDir(dir).catch(log.error)
 }
 
 export async function writeManifestFile(bucket: Bucket, cacheDir: string) : Promise<Object> {

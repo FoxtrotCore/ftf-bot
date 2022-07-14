@@ -1,7 +1,14 @@
 import { Intents, Client } from 'discord.js'
 import {Bucket, Storage, StorageOptions, File} from "@google-cloud/storage";
 import {assertBucketExists, fetchVideoFile} from "./automation/googleCloudStorage"
-import {createCacheDir, ensureEpisode, ensureManifest, episodeIsCached} from "./automation/cacheManager";
+import {
+    createCacheDir, createDir,
+    ensureEpisode,
+    ensureManifest,
+    episodeIsCached,
+    episodeToFilePair
+} from "./automation/cacheManager";
+import {getFrame} from "./automation/ffmpeg";
 const createLogger = require('logging')
 const {Token, GCPProjectID, GCPKeyFileName, GCPBucketName, CacheDir} = require('./config.json')
 const loader = require('./automation/loader')
@@ -30,9 +37,13 @@ async function main() : Promise<void> {
     const manifest = await ensureManifest(renders_bucket, cache_dir)
 
     // Find local resources
-    const ep_num = 2
-    const ep_file = await ensureEpisode(ep_num, renders_bucket, manifest, cache_dir)
-    log.info(`EP #${ep_num} available at: ${ep_file}`)
+    // const ep_num = 2
+    //
+    // const video_path = `${cache_dir}/${episodeToFilePair(manifest, ep_num)}`
+    // const output_path = `${cache_dir}/${ep_num}`
+    // createDir(output_path)
+    // const image_path = await getFrame('40.15', video_path, output_path)
+    // log.info(`Wrote frame to: ${image_path}`)
 
     // Setup the Discord client
     // const bot = new Client({
