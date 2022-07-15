@@ -1,66 +1,82 @@
-import { Intents, Client } from 'discord.js'
-import {Bucket, Storage, StorageOptions, File} from "@google-cloud/storage";
-import {assertBucketExists, fetchVideoFile} from "./automation/googleCloudStorage"
-import {
-    createCacheDir, createDir,
-    ensureEpisode,
-    ensureManifest,
-    episodeIsCached,
-    episodeToFilePair
-} from "./automation/cacheManager";
-import {getFrame} from "./automation/ffmpeg";
+import {RawDiscordRESTClient} from './utilities/discord'
+import {APIApplicationCommand} from "discord-api-types/v10";
+import {CommandExecutable} from "./commands/CommandExecutable";
+import {Client, CommandInteraction, Intents, Interaction} from "discord.js";
 const createLogger = require('logging')
-const {Token, GCPProjectID, GCPKeyFileName, GCPBucketName, CacheDir} = require('./config.json')
-const loader = require('./automation/loader')
+const {discord} = require('./config.json')
 
 // Setup the global logger
 export const log = createLogger.default('FTF-Bot')
 
+function loadLocalCommands(command_names: Array<string>) : Map<string, CommandExecutable> {
+    const command_dict = new Map<string, CommandExecutable>()
+    command_names.forEach((name: string) => {
+        const callable = require(`./commands/${name}`)
+
+        const executable: CommandExecutable = CommandExecutable.load_from_callable(callable)
+        command_dict[executable.command.name] = executable
+    })
+    return command_dict
+}
+
 // Wrapping this in an async main function to assert order of operation
 async function main() : Promise<void> {
-    // Set up the Cache Directory
-    const cache_dir = CacheDir.replace('./', `${__dirname}/`).replace('~/', `${process.env.HOME}/`) // Expand potential user vars
-    await createCacheDir(cache_dir) // Do the deed
+    // Create a discord client
+    const client = new Client({intents: [
+                                            Intents.FLAGS.GUILD_MESSAGES,
+                                            Intents.FLAGS.GUILD_MESSAGE_TYPING,
+                                            Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
+                                            Intents.FLAGS.DIRECT_MESSAGES
+        ]})
 
-    // Create the GCP Storage session and subsequent manifest
-    const storageOptions: StorageOptions = {
-        keyFilename: __dirname + '/' + GCPKeyFileName,
-        projectId: GCPProjectID
-    }
-    const storage = new Storage(storageOptions)
+    // Create a rest client
+    const restClient = new RawDiscordRESTClient(discord.token, discord.client_id)
 
-    // Ensure the expected remote resources exist
-    await assertBucketExists(storage, GCPBucketName)
-    const renders_bucket: Bucket = storage.bucket(GCPBucketName)
+    // Unregister all commands
+    // TODO: Dev mode only, remove on release
+    await restClient.getCommands()
+        .then((commands: Array<APIApplicationCommand>) => {
+            commands.forEach(async (command: APIApplicationCommand) => {
+                await restClient.deleteCommand(command)
+                    .then(() => {
+                        log.info(`Unregistered /${command.name} (${command.id})`)
+                    })
+                    .catch(log.error)
+            })
+        })
+        .catch(log.error)
 
-    // Create a manifest of local resources
-    const manifest = await ensureManifest(renders_bucket, cache_dir)
+    // Register all commands
+    const commands = loadLocalCommands(['GetFrame', 'Ping'])
+    commands.forEach(async (command: CommandExecutable, _) => {
+        await restClient.postCommand(command.command)
+            .then((command: APIApplicationCommand) => {
+                log.info(`Registered /${command.name} (${command.id})`)
+            })
+            .catch(log.error)
+    })
 
-    // Find local resources
-    // const ep_num = 2
-    //
-    // const video_path = `${cache_dir}/${episodeToFilePair(manifest, ep_num)}`
-    // const output_path = `${cache_dir}/${ep_num}`
-    // createDir(output_path)
-    // const image_path = await getFrame('40.15', video_path, output_path)
-    // log.info(`Wrote frame to: ${image_path}`)
+    await client.login(discord.token)
+        .then(() => {
+            client.on('ready', (client) => {
+                log.info(`Bot is ready as user: ${client.user.tag}!`)
+            })
 
-    // Setup the Discord client
-    // const bot = new Client({
-    //     intents: [
-    //         Intents.FLAGS.GUILDS,
-    //         Intents.FLAGS.DIRECT_MESSAGES
-    //     ]
-    // })
-    //
-    // // DB Stuff should be defined here too.
-    // bot.login(Token)
-    //   .then(() => {
-    //     log.info(`Bot logged in as '${bot.user.tag}'!`)
-    //     log.info('Loading event listeners:')
-    //     loader.loadEvents(bot)
-    //   })
-    //   .catch(console.log);
+            client.on('interactionCreate', async (interaction: Interaction) => {
+                if(interaction.isCommand()) {
+                    const cmd = (<CommandInteraction> interaction)
+                    log.info(`Command /${cmd.commandName} called by ${cmd.user.tag}, looking for it in callable dictionary: ${JSON.stringify(commands)}`)
+                    const callable = <CommandExecutable>commands[interaction.commandName]
+
+                    try {
+                        await callable.execute(cmd)
+                    }
+                    catch (error) {
+                        await cmd.reply(`Whoops, I tried to run \`/${cmd.commandName}\` for you but encountered this error:\n\`\`\`\n${error}\`\`\``)
+                    }
+                }
+            })
+        })
 }
 
 // Send it
