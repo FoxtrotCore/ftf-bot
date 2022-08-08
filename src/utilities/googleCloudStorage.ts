@@ -1,52 +1,88 @@
-import {Bucket, File, GetFilesOptions, Storage} from '@google-cloud/storage'
 import {log} from "../main";
-import {episodeToFilePair} from "./cacheManager";
+import {readJson} from 'fs-extra'
+import {Bucket, DownloadResponse, File, GetBucketsResponse, Storage} from '@google-cloud/storage'
+import {request} from 'https'
 
-// Constant things that need to be config options eventually
-export async function getBucketNames(storage: Storage) : Promise<string[]>{
-    const [buckets] = await storage.getBuckets()
-    return buckets.map((bucket) => bucket.name)
-}
+export class GCPClient {
+    private storage: Storage
+    private bucket: Bucket
 
-export async function getBucketFileNames(bucket: Bucket) : Promise<string[]> {
-    const options: GetFilesOptions = {
-        autoPaginate: false,
-        delimiter: '/'
-    }
-    const [files] = await bucket.getFiles(options)
-    return files.map((file: File) => file.name)
-}
+    constructor(key_path: string, bucket_name: string) {
+        // Get the project id from the key file
+        const key = readJson(key_path)
 
-export async function createManifest(bucket: Bucket) : Promise<Object> {
-    const manifest: Object = {}
-    const files = await getBucketFileNames(bucket)
-
-    files.forEach((filename: string) => {
-        const episode_number = String(Number(filename.slice(0, 3)))
-        manifest[episode_number] = filename
-    })
-    return manifest
-}
-
-export function assertBucketExists(storage: Storage, bucketName: string) {
-    getBucketNames(storage)
-        .then((buckets: string[]) => {
-            if(!buckets.includes(bucketName)) {
-                throw new Error(`Bucket '${bucketName}' was expected but not found in available buckets: ${buckets}!`)
-            }
+        // Create the storage session
+        this.storage = new Storage({
+            keyFilename: key_path,
+            projectId: key.project_id
         })
-        .catch(log.error)
-}
 
-export async function fetchVideoFile(bucket: Bucket, episode_number: Number, manifest: Object, cacheDir: string) : Promise<string> {
-    const [files] = await bucket.getFiles()
-    const file_name = episodeToFilePair(manifest, episode_number)
-    const local_file = `${cacheDir}/${file_name}`
-    const remote_file : File = files.filter((file: File) => file.name === file_name)[0]
-
-    const options = {
-        destination: local_file
+        // Serialize the bucket connection
+        this.assertBucketExists(bucket_name)
+        this.bucket = this.storage.bucket(bucket_name)
     }
-    remote_file.download(options)
-    return local_file
+
+    public async getPing(zone: string = 'northeast1-northeast1') : Promise<Number> {
+        const start = Date.now()
+        await request({
+            hostname: `${zone}-5tkroniexa-nn.a.run.app`,
+            port: 443,
+            path: '/api/ping',
+            method: 'GET'
+        })
+        return Date.now() - start
+    }
+
+    private assertBucketExists(bucket_name: string) {
+        this.storage.getBuckets()
+            .then(async (response: GetBucketsResponse) => {
+                const buckets = response[0]
+                const bucket_names = buckets.map((b) => b.name)
+
+                if(!bucket_names.includes(bucket_name)) {
+                    throw new Error(`Bucket gs://${bucket_name} does not exist among available buckets: ${bucket_names.map((b) => `gs://${b}`)}`)
+                }
+            })
+            .catch(log.error)
+    }
+
+    private async getFileNames() : Promise<string[]> {
+        const [files] = await this.bucket.getFiles({
+            autoPaginate: false,
+            delimiter: '/'
+        })
+        return files.map((file: File) => file.name)
+    }
+
+    public async generateManifest() : Promise<Object> {
+        const files = await this.getFileNames()
+        const manifest: Object = {}
+        files.forEach((filename: string) => {
+            const episode_number = String(Number(filename.slice(0, 3)))
+            manifest[episode_number] = filename
+        })
+        return manifest
+    }
+
+    public async fetchRemoteVideoFile(file_name: string, destination_dir: string) : Promise<string> {
+        // Piece together the source and destination files
+        const [files] = await this.bucket.getFiles()
+        const destination = `${destination_dir}/${file_name}`
+
+        // Check to see if the file exists
+        const source_files : File[] = files.filter((file: File) => file.name === file_name)
+        if(source_files.length != 1) {
+            throw new Error(`File gs://${this.bucket.name}/${file_name} was not found!`)
+        }
+
+        // Do the download
+        log.warn(`Required to do a fetch from gs://${this.bucket.name}/${file_name}`)
+        await source_files[0].download({destination: destination})
+            .then((response: DownloadResponse) => {
+                log.warn(response)
+                log.info(`Downloaded file: ${response}`)
+            })
+            .catch(log.error)
+        return destination
+    }
 }

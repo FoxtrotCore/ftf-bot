@@ -1,82 +1,64 @@
 import {RawDiscordRESTClient} from './utilities/discord'
-import {APIApplicationCommand} from "discord-api-types/v10";
 import {CommandExecutable} from "./commands/CommandExecutable";
 import {Client, CommandInteraction, Intents, Interaction} from "discord.js";
-const createLogger = require('logging')
-const {discord} = require('./config.json')
+import {CacheManager} from "./utilities/cacheManager";
+import {GCPClient} from "./utilities/googleCloudStorage";
 
 // Setup the global logger
+const createLogger = require('logging')
 export const log = createLogger.default('FTF-Bot')
-
-function loadLocalCommands(command_names: Array<string>) : Map<string, CommandExecutable> {
-    const command_dict = new Map<string, CommandExecutable>()
-    command_names.forEach((name: string) => {
-        const callable = require(`./commands/${name}`)
-
-        const executable: CommandExecutable = CommandExecutable.load_from_callable(callable)
-        command_dict[executable.command.name] = executable
-    })
-    return command_dict
-}
 
 // Wrapping this in an async main function to assert order of operation
 async function main() : Promise<void> {
-    // Create a discord client
-    const client = new Client({intents: [
-                                            Intents.FLAGS.GUILD_MESSAGES,
-                                            Intents.FLAGS.GUILD_MESSAGE_TYPING,
-                                            Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
-                                            Intents.FLAGS.DIRECT_MESSAGES
+    // Create cache manager
+    const cache = new CacheManager(null, __dirname)
+    const config: any = await cache.getConfig()
+
+    // Create GCP Client and immediately generate a manifest
+    const gcp_client = new GCPClient(config.gcp_key_path, 'ftf-renders')
+    await cache.setGCPClient(gcp_client)
+               .generateManifest()
+
+    // Create the Discord bot with all the proper intents
+    const discord_client = new Client({intents: [
+            Intents.FLAGS.GUILD_MESSAGES,
+            Intents.FLAGS.GUILD_MESSAGE_TYPING,
+            Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
+            Intents.FLAGS.DIRECT_MESSAGES
         ]})
 
+    // Load the local command executable dictionary
+    const command_dict = RawDiscordRESTClient.loadLocalCommandExecutables(['Ping', 'GetFrame'], cache, discord_client)
+
     // Create a rest client
-    const restClient = new RawDiscordRESTClient(discord.token, discord.client_id)
+    // const restClient = new RawDiscordRESTClient(config.discord.token, config.discord.client_id, command_dict)
+    // await restClient.deleteAllRemoteCommands()
+    // await restClient.postAllLocalCommands()
 
-    // Unregister all commands
-    // TODO: Dev mode only, remove on release
-    await restClient.getCommands()
-        .then((commands: Array<APIApplicationCommand>) => {
-            commands.forEach(async (command: APIApplicationCommand) => {
-                await restClient.deleteCommand(command)
-                    .then(() => {
-                        log.info(`Unregistered /${command.name} (${command.id})`)
-                    })
-                    .catch(log.error)
-            })
-        })
-        .catch(log.error)
-
-    // Register all commands
-    const commands = loadLocalCommands(['GetFrame', 'Ping'])
-    commands.forEach(async (command: CommandExecutable, _) => {
-        await restClient.postCommand(command.command)
-            .then((command: APIApplicationCommand) => {
-                log.info(`Registered /${command.name} (${command.id})`)
-            })
-            .catch(log.error)
-    })
-
-    await client.login(discord.token)
+    // Begin the bot event loop
+    await discord_client.login(config.discord.token)
         .then(() => {
-            client.on('ready', (client) => {
+            discord_client.on('ready', (client) => {
                 log.info(`Bot is ready as user: ${client.user.tag}!`)
             })
 
-            client.on('interactionCreate', async (interaction: Interaction) => {
+            discord_client.on('interactionCreate', async (interaction: Interaction) => {
                 if(interaction.isCommand()) {
                     const cmd = (<CommandInteraction> interaction)
-                    log.info(`Command /${cmd.commandName} called by ${cmd.user.tag}, looking for it in callable dictionary: ${JSON.stringify(commands)}`)
-                    const callable = <CommandExecutable>commands[interaction.commandName]
+                    const callable = <CommandExecutable> command_dict.get(cmd.commandName)
 
                     try {
-                        await callable.execute(cmd)
+                        log.info(`Executing callable for ${cmd.user.tag} -> ${callable}`)
+                        await callable.execute(cmd, cache)
                     }
                     catch (error) {
-                        await cmd.reply(`Whoops, I tried to run \`/${cmd.commandName}\` for you but encountered this error:\n\`\`\`\n${error}\`\`\``)
+                        log.error(`${error}\n${error.stackTrace}`)
+                        //await cmd.followUp(`Whoops, I tried to run \`/${cmd.commandName}\` for you but encountered this error:\n\`\`\`\n${error}\`\`\``)
                     }
                 }
             })
         })
+        .catch(log.error)
 }
 
 // Send it
