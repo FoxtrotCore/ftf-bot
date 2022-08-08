@@ -1,8 +1,9 @@
-import {RawDiscordRESTClient} from './utilities/discord'
+import {RawDiscordRESTClient} from './utilities/discord';
 import {CommandExecutable} from "./commands/CommandExecutable";
 import {Client, CommandInteraction, Intents, Interaction} from "discord.js";
 import {CacheManager} from "./utilities/cacheManager";
 import {GCPClient} from "./utilities/googleCloudStorage";
+import {ArgumentParser} from 'argparse';
 
 // Setup the global logger
 const createLogger = require('logging')
@@ -10,6 +11,17 @@ export const log = createLogger.default('FTF-Bot')
 
 // Wrapping this in an async main function to assert order of operation
 async function main() : Promise<void> {
+    // Create the argparser
+    const parser = new ArgumentParser({
+        description: 'A discord bot for FTF!',
+        add_help: true
+    })
+    parser.add_argument('-rc', '--reregister-commands', {
+        dest: 'reregister_commands',
+        action: 'store_true'
+    })
+    const args = parser.parse_args()
+
     // Create cache manager
     const cache = new CacheManager(null, __dirname)
     const config: any = await cache.getConfig()
@@ -30,10 +42,12 @@ async function main() : Promise<void> {
     // Load the local command executable dictionary
     const command_dict = RawDiscordRESTClient.loadLocalCommandExecutables(['Ping', 'GetFrame'], cache, discord_client)
 
-    // Create a rest client
-    // const restClient = new RawDiscordRESTClient(config.discord.token, config.discord.client_id, command_dict)
-    // await restClient.deleteAllRemoteCommands()
-    // await restClient.postAllLocalCommands()
+    // Re-register all commands with discord if directed to
+    if(args.reregister_commands){
+        const restClient = new RawDiscordRESTClient(config.discord.token, config.discord.client_id, command_dict)
+        await restClient.deleteAllRemoteCommands()
+        await restClient.postAllLocalCommands()
+    }
 
     // Begin the bot event loop
     await discord_client.login(config.discord.token)
@@ -53,7 +67,6 @@ async function main() : Promise<void> {
                     }
                     catch (error) {
                         log.error(`${error}\n${error.stackTrace}`)
-                        //await cmd.followUp(`Whoops, I tried to run \`/${cmd.commandName}\` for you but encountered this error:\n\`\`\`\n${error}\`\`\``)
                     }
                 }
             })

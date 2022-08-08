@@ -4,8 +4,6 @@ import {ApplicationCommandOptionType} from "discord-api-types/v10";
 import {log} from "../main";
 import {CacheManager} from "../utilities/cacheManager";
 import {getFrame, timestamp_to_frame_number} from "../utilities/ffmpeg";
-import {AssertionError} from "assert";
-import {Runtime} from "inspector";
 const path = require('path')
 
 export class GetFrame extends CommandExecutable {

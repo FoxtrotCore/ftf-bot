@@ -1,11 +1,11 @@
 {
   "name": "ftf-bot",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "An all-purpose Discord Bot as an extra interface to FTF's software.",
   "main": "build/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "cd build && node main.js",
+    "start": "cd build && node main.js --register",
     "clean": "rm -rf build node_modules"
   },
   "repository": {
@@ -30,6 +30,7 @@
     "@types/node": "^18.0.0",
     "discord-api-types": "^0.36.2",
     "discord.js": "^13.3.1",
+    "argparse":  "^2.0.1",
     "file-entry-cache": "^6.0.1",
     "fs-extra": "^10.1.0",
     "logging": "^3.3.0",
