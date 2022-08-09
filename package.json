@@ -5,7 +5,7 @@
   "main": "build/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "cd build && node main.js --register",
+    "start": "cd build && node main.js",
     "clean": "rm -rf build node_modules"
   },
   "repository": {

@@ -16,8 +16,12 @@ async function main() : Promise<void> {
         description: 'A discord bot for FTF!',
         add_help: true
     })
-    parser.add_argument('-rc', '--reregister-commands', {
-        dest: 'reregister_commands',
+    parser.add_argument('-rc', '--register-commands', {
+        dest: 'register_commands',
+        action: 'store_true'
+    })
+    parser.add_argument('-uc', '--unregister-commands', {
+        dest: 'unregister_commands',
         action: 'store_true'
     })
     const args = parser.parse_args()
@@ -42,11 +46,16 @@ async function main() : Promise<void> {
     // Load the local command executable dictionary
     const command_dict = RawDiscordRESTClient.loadLocalCommandExecutables(['Ping', 'GetFrame'], cache, discord_client)
 
-    // Re-register all commands with discord if directed to
-    if(args.reregister_commands){
-        const restClient = new RawDiscordRESTClient(config.discord.token, config.discord.client_id, command_dict)
+    // Un/Register all commands with discord if directed to
+    const restClient = new RawDiscordRESTClient(config.discord.token, config.discord.client_id, command_dict)
+    if(args.unregister_commands) {
         await restClient.deleteAllRemoteCommands()
+    }
+    if(args.register_commands) {
         await restClient.postAllLocalCommands()
+    }
+    if(args.register_commands || args.unregister_commands) {
+        return
     }
 
     // Begin the bot event loop
